@@ -53,7 +53,7 @@ def analyze_molecule(smiles):
         return None
 
     fp = smiles_to_fp(smiles).reshape(1, -1)
-    prob_toxic = float(model.predict_proba(fp)[0][1])
+    prob_toxic = float(model.predict_proba(fp))
     risk_percent = round(prob_toxic * 100, 1)
 
     mw = round(Descriptors.MolWt(mol), 2)
@@ -98,7 +98,7 @@ st.write("Predict chemical toxicity endpoints, drug-likeness (Lipinski's Rule of
 tab1, tab2 = st.tabs(["🔬 Single Molecule Predictor", "📂 Batch Screening (CSV / Multi-SMILES)"])
 
 with tab1:
-  examples = {
+    examples = {
         "Aspirin (Low Risk)": "CC(=O)OC1=CC=CC=C1C(=O)O",
         "Ibuprofen (Low Risk)": "CC(C)CC1=CC=C(C=C1)C(C)C(=O)O",
         "Acetaminophen / Paracetamol (Low Risk)": "CC(=O)NC1=CC=C(C=C1)O",
@@ -118,7 +118,7 @@ with tab1:
         "Quinoline (High Risk)": "C1=CC=C2C(=C1)C=CC=N2",
         "4-Acetylaminobiphenyl - Carcinogen (High Risk)": "CC(=O)NC1=CC=C(C=C1)C2=CC=CC=C2",
         "p-Phenylenediamine (High Risk)": "C1=CC(=CC=C1N)N"
-    }  
+    }
 
     col1, col2 = st.columns(2)
 
