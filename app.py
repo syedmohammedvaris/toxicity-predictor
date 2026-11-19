@@ -1,4 +1,18 @@
 import streamlit as st
+hide_streamlit_style = """
+    <style>
+    /* Hides the top toolbar with Fork, GitHub icon, and 3 dots */
+    [data-testid="stToolbar"] {visibility: hidden !important;}
+    header {visibility: hidden !important;}
+    
+    /* Hides the bottom "Made with Streamlit" footer and red crown badge */
+    footer {visibility: hidden !important;}
+    [data-testid="stStatusWidget"] {visibility: hidden !important;}
+    .viewerBadge_container__r5tak {display: none !important;}
+    .styles_viewerBadge__CvC9N {display: none !important;}
+    </style>
+"""
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 import numpy as np
 import pandas as pd
 from rdkit import Chem
