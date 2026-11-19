@@ -7,7 +7,6 @@ from sklearn.ensemble import RandomForestClassifier
 
 st.set_page_config(page_title="In Silico Toxicity Predictor", page_icon="🧪", layout="wide")
 
-# --- 1. Built-in Training Dataset ---
 TRAINING_DATA = [
     ("CC(=O)OC1=CC=CC=C1C(=O)O", 0),       # Aspirin
     ("CC(C)CC1=CC=C(C=C1)C(C)C(=O)O", 0),   # Ibuprofen
@@ -54,7 +53,7 @@ def analyze_molecule(smiles):
         return None
 
     fp = smiles_to_fp(smiles).reshape(1, -1)
-    prob_toxic = float(model.predict_proba(fp))
+    prob_toxic = float(model.predict_proba(fp)[0][1])
     risk_percent = round(prob_toxic * 100, 1)
 
     mw = round(Descriptors.MolWt(mol), 2)
@@ -63,11 +62,9 @@ def analyze_molecule(smiles):
     hba = Descriptors.NumHAcceptors(mol)
     tpsa = round(Descriptors.TPSA(mol), 2)
 
-    # Lipinski's Rule of Five checks
     violations = sum([mw > 500, logp > 5, hbd > 5, hba > 10])
     lipinski_status = f"Pass ({violations} violations)" if violations <= 1 else f"Fail ({violations} violations)"
 
-    # Risk category
     if risk_percent >= 65:
         risk_label = "High Risk"
     elif risk_percent >= 35:
@@ -95,13 +92,11 @@ def analyze_molecule(smiles):
         "HBA": hba
     }
 
-# --- 2. Website Header & Tabs ---
 st.title("🧪 In Silico Chemical Toxicity & ADMET Prediction Platform")
 st.write("Predict chemical toxicity endpoints, drug-likeness (Lipinski's Rule of Five), and molecular descriptors in real time.")
 
 tab1, tab2 = st.tabs(["🔬 Single Molecule Predictor", "📂 Batch Screening (CSV / Multi-SMILES)"])
 
-# === TAB 1: SINGLE MOLECULE ===
 with tab1:
     examples = {
         "Aspirin (Low Risk)": "CC(=O)OC1=CC=CC=C1C(=O)O",
@@ -111,7 +106,7 @@ with tab1:
         "DDT Pesticide (High Risk)": "ClC1=CC=C(C=C1)C(C2=CC=C(Cl)C=C2)C(Cl)(Cl)Cl"
     }
 
-    col1, col2 = st.columns()
+    col1, col2 = st.columns(2)
 
     with col1:
         selected_example = st.selectbox("Quick Example Molecules:", list(examples.keys()))
@@ -159,7 +154,6 @@ with tab1:
             st.write(f"- LogP ≤ 5: {'✅' if res['LogP'] <= 5 else '❌'}")
             st.write(f"- HBD ≤ 5 & HBA ≤ 10: {'✅' if (res['HBD'] <= 5 and res['HBA'] <= 10) else '❌'}")
 
-        # Download Single Report
         report_df = pd.DataFrame([{k: v for k, v in res.items() if k != "mol"}])
         st.download_button(
             label="📥 Download Prediction Report (CSV)",
@@ -168,7 +162,6 @@ with tab1:
             mime="text/csv"
         )
 
-# === TAB 2: BATCH SCREENING ===
 with tab2:
     st.subheader("Screen Multiple Molecules at Once")
     st.write("Upload a CSV file containing a **`SMILES`** column, or paste multiple SMILES below (one per line).")
