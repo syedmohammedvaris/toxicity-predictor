@@ -98,13 +98,27 @@ st.write("Predict chemical toxicity endpoints, drug-likeness (Lipinski's Rule of
 tab1, tab2 = st.tabs(["🔬 Single Molecule Predictor", "📂 Batch Screening (CSV / Multi-SMILES)"])
 
 with tab1:
-    examples = {
+  examples = {
         "Aspirin (Low Risk)": "CC(=O)OC1=CC=CC=C1C(=O)O",
+        "Ibuprofen (Low Risk)": "CC(C)CC1=CC=C(C=C1)C(C)C(=O)O",
+        "Acetaminophen / Paracetamol (Low Risk)": "CC(=O)NC1=CC=C(C=C1)O",
         "Caffeine (Low Risk)": "CN1C=NC2=C1C(=O)N(C(=O)N2C)C",
-        "Nitrobenzene (High Risk)": "C1=CC=C(C=C1)[N+](=O)[O-]",
+        "Glucose (Low Risk)": "C(C1C(C(C(C(O1)O)O)O)O)O",
+        "Ethanol (Low Risk)": "CCO",
+        "Acetic Acid (Low Risk)": "CC(=O)O",
+        "Benzoic Acid (Low Risk)": "C1=CC=C(C=C1)C(=O)O",
+        "Salbutamol (Low Risk)": "CC(C)(C)NCC(O)C1=CC(CO)=C(O)C=C1",
         "Nicotine (High Risk)": "CN1CCCC1C2=CN=CC=C2",
-        "DDT Pesticide (High Risk)": "ClC1=CC=C(C=C1)C(C2=CC=C(Cl)C=C2)C(Cl)(Cl)Cl"
-    }
+        "Nitrobenzene (High Risk)": "C1=CC=C(C=C1)[N+](=O)[O-]",
+        "Phenanthrene - PAH (High Risk)": "C1=CC=C2C(=C1)C=CC3=CC=CC=C32",
+        "Pyrene - PAH (High Risk)": "C1=CC2=C3C(=C1)C=CC4=CC=CC(=C43)C=C2",
+        "DDT Pesticide (High Risk)": "ClC1=CC=C(C=C1)C(C2=CC=C(Cl)C=C2)C(Cl)(Cl)Cl",
+        "Azobenzene (High Risk)": "C1=CC=C(C=C1)N=NC2=CC=CC=C2",
+        "Chlorobenzene (High Risk)": "C1=CC=C(C=C1)Cl",
+        "Quinoline (High Risk)": "C1=CC=C2C(=C1)C=CC=N2",
+        "4-Acetylaminobiphenyl - Carcinogen (High Risk)": "CC(=O)NC1=CC=C(C=C1)C2=CC=CC=C2",
+        "p-Phenylenediamine (High Risk)": "C1=CC(=CC=C1N)N"
+    }  
 
     col1, col2 = st.columns(2)
 
