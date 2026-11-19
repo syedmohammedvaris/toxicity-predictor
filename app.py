@@ -53,7 +53,7 @@ def analyze_molecule(smiles):
         return None
 
     fp = smiles_to_fp(smiles).reshape(1, -1)
-    prob_toxic = float(model.predict_proba(fp))
+    prob_toxic = float(model.predict_proba(fp).item(1))
     risk_percent = round(prob_toxic * 100, 1)
 
     mw = round(Descriptors.MolWt(mol), 2)
