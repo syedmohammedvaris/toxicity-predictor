@@ -1,11 +1,13 @@
 import streamlit as st
 import numpy as np
+import pandas as pd
 from rdkit import Chem
 from rdkit.Chem import Descriptors, AllChem, Draw
 from sklearn.ensemble import RandomForestClassifier
 
 st.set_page_config(page_title="In Silico Toxicity Predictor", page_icon="🧪", layout="wide")
 
+# --- 1. Built-in Training Dataset ---
 TRAINING_DATA = [
     ("CC(=O)OC1=CC=CC=C1C(=O)O", 0),       # Aspirin
     ("CC(C)CC1=CC=C(C=C1)C(C)C(=O)O", 0),   # Ibuprofen
@@ -45,31 +47,14 @@ def load_model():
 
 model = load_model()
 
-st.title("🧪 In Silico Chemical Toxicity Prediction Platform")
-st.write("Enter a chemical **SMILES** string or pick an example molecule to run real-time QSAR toxicity prediction and molecular profiling.")
+def analyze_molecule(smiles):
+    smiles = str(smiles).strip()
+    mol = Chem.MolFromSmiles(smiles)
+    if mol is None:
+        return None
 
-examples = {
-    "Aspirin (Low Risk)": "CC(=O)OC1=CC=CC=C1C(=O)O",
-    "Caffeine (Low Risk)": "CN1C=NC2=C1C(=O)N(C(=O)N2C)C",
-    "Nitrobenzene (High Risk)": "C1=CC=C(C=C1)[N+](=O)[O-]",
-    "Nicotine (High Risk)": "CN1CCCC1C2=CN=CC=C2",
-    "DDT Pesticide (High Risk)": "ClC1=CC=C(C=C1)C(C2=CC=C(Cl)C=C2)C(Cl)(Cl)Cl"
-}
-
-col1, col2 = st.columns([1, 1])
-
-with col1:
-    selected_example = st.selectbox("Quick Example Molecules:", list(examples.keys()))
-    smiles_input = st.text_input("Or Enter Custom SMILES String:", value=examples[selected_example])
-    run_btn = st.button("🔬 Run Toxicity Prediction", type="primary")
-
-mol = Chem.MolFromSmiles(smiles_input.strip())
-
-if mol is None:
-    st.error("❌ Invalid SMILES string. Please check the chemical notation.")
-else:
-    fp = smiles_to_fp(smiles_input.strip()).reshape(1, -1)
-    prob_toxic = float(model.predict_proba(fp)[0][1])
+    fp = smiles_to_fp(smiles).reshape(1, -1)
+    prob_toxic = float(model.predict_proba(fp))
     risk_percent = round(prob_toxic * 100, 1)
 
     mw = round(Descriptors.MolWt(mol), 2)
@@ -78,32 +63,148 @@ else:
     hba = Descriptors.NumHAcceptors(mol)
     tpsa = round(Descriptors.TPSA(mol), 2)
 
-    with col2:
-        if risk_percent >= 65:
-            st.error(f"### 🔴 HIGH TOXICITY RISK ({risk_percent}%)")
-        elif risk_percent >= 35:
-            st.warning(f"### 🟡 MODERATE TOXICITY RISK ({risk_percent}%)")
+    # Lipinski's Rule of Five checks
+    violations = sum([mw > 500, logp > 5, hbd > 5, hba > 10])
+    lipinski_status = f"Pass ({violations} violations)" if violations <= 1 else f"Fail ({violations} violations)"
+
+    # Risk category
+    if risk_percent >= 65:
+        risk_label = "High Risk"
+    elif risk_percent >= 35:
+        risk_label = "Moderate Risk"
+    else:
+        risk_label = "Low Risk"
+
+    hepato = "Elevated" if (logp > 3.0 and mw > 250) or risk_percent > 60 else "Low"
+    mutagen = "Alert (Aromatic/Nitro)" if ("N(=O)=O" in smiles or "[N+](=O)[O-]" in smiles or risk_percent > 65) else "Negative"
+    herg = "Moderate/High" if (logp > 3.5 and hba >= 2) else "Low"
+
+    return {
+        "mol": mol,
+        "SMILES": smiles,
+        "Toxicity_Probability_%": risk_percent,
+        "Risk_Level": risk_label,
+        "Hepatotoxicity": hepato,
+        "Ames_Mutagenicity": mutagen,
+        "hERG_Cardiotoxicity": herg,
+        "Lipinski_Rule_of_5": lipinski_status,
+        "Molecular_Weight": mw,
+        "LogP": logp,
+        "TPSA": tpsa,
+        "HBD": hbd,
+        "HBA": hba
+    }
+
+# --- 2. Website Header & Tabs ---
+st.title("🧪 In Silico Chemical Toxicity & ADMET Prediction Platform")
+st.write("Predict chemical toxicity endpoints, drug-likeness (Lipinski's Rule of Five), and molecular descriptors in real time.")
+
+tab1, tab2 = st.tabs(["🔬 Single Molecule Predictor", "📂 Batch Screening (CSV / Multi-SMILES)"])
+
+# === TAB 1: SINGLE MOLECULE ===
+with tab1:
+    examples = {
+        "Aspirin (Low Risk)": "CC(=O)OC1=CC=CC=C1C(=O)O",
+        "Caffeine (Low Risk)": "CN1C=NC2=C1C(=O)N(C(=O)N2C)C",
+        "Nitrobenzene (High Risk)": "C1=CC=C(C=C1)[N+](=O)[O-]",
+        "Nicotine (High Risk)": "CN1CCCC1C2=CN=CC=C2",
+        "DDT Pesticide (High Risk)": "ClC1=CC=C(C=C1)C(C2=CC=C(Cl)C=C2)C(Cl)(Cl)Cl"
+    }
+
+    col1, col2 = st.columns()
+
+    with col1:
+        selected_example = st.selectbox("Quick Example Molecules:", list(examples.keys()))
+        smiles_input = st.text_input("Or Enter Custom SMILES String:", value=examples[selected_example])
+        st.button("🔬 Run Toxicity Prediction", type="primary")
+
+    res = analyze_molecule(smiles_input)
+
+    if res is None:
+        st.error("❌ Invalid SMILES string. Please check the chemical notation.")
+    else:
+        risk_percent = res["Toxicity_Probability_%"]
+        with col2:
+            if risk_percent >= 65:
+                st.error(f"### 🔴 HIGH TOXICITY RISK ({risk_percent}%)")
+            elif risk_percent >= 35:
+                st.warning(f"### 🟡 MODERATE TOXICITY RISK ({risk_percent}%)")
+            else:
+                st.success(f"### 🟢 LOW TOXICITY RISK ({risk_percent}%)")
+
+            img = Draw.MolToImage(res["mol"], size=(300, 300))
+            st.image(img, caption="2D Chemical Structure")
+
+        st.divider()
+        c1, c2, c3 = st.columns(3)
+
+        with c1:
+            st.subheader("Toxicity Endpoints")
+            st.write(f"- **QSAR Probability:** `{risk_percent}%`")
+            st.write(f"- **Hepatotoxicity:** {res['Hepatotoxicity']}")
+            st.write(f"- **Ames Mutagenicity:** {res['Ames_Mutagenicity']}")
+            st.write(f"- **hERG Cardiotoxicity:** {res['hERG_Cardiotoxicity']}")
+
+        with c2:
+            st.subheader("Physicochemical Properties")
+            st.write(f"- **Molecular Weight:** `{res['Molecular_Weight']} g/mol`")
+            st.write(f"- **LogP (Lipophilicity):** `{res['LogP']}`")
+            st.write(f"- **TPSA:** `{res['TPSA']} Å²`")
+            st.write(f"- **H-Bond Donors / Acceptors:** `{res['HBD']}` / `{res['HBA']}`")
+
+        with c3:
+            st.subheader("Drug-Likeness (Lipinski)")
+            st.write(f"- **Status:** **{res['Lipinski_Rule_of_5']}**")
+            st.write(f"- MW ≤ 500: {'✅' if res['Molecular_Weight'] <= 500 else '❌'}")
+            st.write(f"- LogP ≤ 5: {'✅' if res['LogP'] <= 5 else '❌'}")
+            st.write(f"- HBD ≤ 5 & HBA ≤ 10: {'✅' if (res['HBD'] <= 5 and res['HBA'] <= 10) else '❌'}")
+
+        # Download Single Report
+        report_df = pd.DataFrame([{k: v for k, v in res.items() if k != "mol"}])
+        st.download_button(
+            label="📥 Download Prediction Report (CSV)",
+            data=report_df.to_csv(index=False).encode("utf-8"),
+            file_name="toxicity_prediction_report.csv",
+            mime="text/csv"
+        )
+
+# === TAB 2: BATCH SCREENING ===
+with tab2:
+    st.subheader("Screen Multiple Molecules at Once")
+    st.write("Upload a CSV file containing a **`SMILES`** column, or paste multiple SMILES below (one per line).")
+
+    uploaded_file = st.file_uploader("Upload CSV File", type=["csv"])
+    smiles_list_input = st.text_area(
+        "Or Paste SMILES List (one per line):",
+        value="CC(=O)OC1=CC=CC=C1C(=O)O\nCN1C=NC2=C1C(=O)N(C(=O)N2C)C\nC1=CC=C(C=C1)[N+](=O)[O-]\nCN1CCCC1C2=CN=CC=C2",
+        height=130
+    )
+
+    if st.button("🚀 Run Batch Prediction", type="primary"):
+        smiles_to_run = []
+        if uploaded_file is not None:
+            df_in = pd.read_csv(uploaded_file)
+            if "SMILES" in df_in.columns:
+                smiles_to_run = df_in["SMILES"].dropna().tolist()
+            else:
+                st.error("Your CSV file must have a column named 'SMILES'.")
         else:
-            st.success(f"### 🟢 LOW TOXICITY RISK ({risk_percent}%)")
-        
-        img = Draw.MolToImage(mol, size=(320, 320))
-        st.image(img, caption="2D Chemical Structure")
+            smiles_to_run = [line.strip() for line in smiles_list_input.splitlines() if line.strip()]
 
-    st.divider()
-    c1, c2 = st.columns(2)
-    with c1:
-        st.subheader("Predicted Endpoint Profile")
-        hepato = "Elevated" if (logp > 3.0 and mw > 250) or risk_percent > 60 else "Low"
-        mutagen = "Alert (Aromatic/Nitro)" if ("N(=O)=O" in smiles_input or "[N+](=O)[O-]" in smiles_input or risk_percent > 65) else "Negative"
-        herg = "Moderate/High" if (logp > 3.5 and hba >= 2) else "Low"
-        st.write(f"- **QSAR Toxicity Probability:** `{risk_percent}%`")
-        st.write(f"- **Hepatotoxicity (Liver):** {hepato}")
-        st.write(f"- **Ames Mutagenicity:** {mutagen}")
-        st.write(f"- **Cardiotoxicity (hERG Channel):** {herg}")
+        if smiles_to_run:
+            results = []
+            for s in smiles_to_run:
+                r = analyze_molecule(s)
+                if r:
+                    results.append({k: v for k, v in r.items() if k != "mol"})
+                else:
+                    results.append({"SMILES": s, "Risk_Level": "Invalid SMILES"})
 
-    with c2:
-        st.subheader("Physicochemical Properties")
-        st.write(f"- **Molecular Weight:** `{mw} g/mol`")
-        st.write(f"- **LogP (Lipophilicity):** `{logp}`")
-        st.write(f"- **TPSA:** `{tpsa} Å²`")
-        st.write(f"- **H-Bond Donors / Acceptors:** `{hbd}` / `{hba}`")
+            out_df = pd.DataFrame(results)
+            st.dataframe(out_df, use_container_width=True)
+            st.download_button(
+                label="📥 Download Full Batch Results (CSV)",
+                data=out_df.to_csv(index=False).encode("utf-8"),
+                file_name="batch_toxicity_predictions.csv",
+                mime="text/csv"
+            )
